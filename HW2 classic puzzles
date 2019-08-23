@@ -1,0 +1,283 @@
+############################################################
+# CMPSC 442: Homework 2
+############################################################
+
+student_name = "Ching-Hao Fan"
+
+############################################################
+# Imports
+############################################################
+
+# Include your imports here, if any are used.
+import math
+import random
+import copy
+import Queue
+
+############################################################
+# Section 1: N-Queens
+############################################################
+
+def num_placements_all(n):
+    fact= math.factorial
+    a=fact(n*n)
+    b=fact(n)
+    c=fact(n*n-n)
+    return a/b/c
+
+def num_placements_one_per_row(n):
+    return (n**n)
+
+def n_queens_valid(board):
+    if (len(board) == 1):
+        return False;
+    for (i, x) in enumerate(board):
+        for (j, y) in enumerate(board):
+            if abs(i-j)>0 and ((x == y) or (abs(x - y) == abs(i - j))):
+                return False
+    return True
+def n_queens_solutions(n):
+    global sol
+    sol=[]
+    for x in range(n):
+        for solution in n_queens_helper(n,[x]):
+            yield solution
+def n_queens_helper(n, board):
+    new=[board]
+    while True:
+        if new == []:  #remove empty list
+            break
+        else:
+            current = new.pop(0)
+            for i in range(n):
+                if len(current + [i]) < n:  #check with n
+                    if n_queens_valid(current + [i]):
+                        new.append(current + [i])
+                else:
+                    if n_queens_valid(current + [i]):
+                        yield(current + [i])
+
+############################################################
+# Section 2: Lights Out
+############################################################
+
+class LightsOutPuzzle(object):
+
+    def __init__(self, board):
+        self.board = board
+        self.rlen = len(board)
+        self.clen = len(self.board[0])
+
+    def get_board(self):
+        return self.board
+
+    def perform_move(self, row, col):
+        if row<0 or col<0:
+            return
+        self.board[row][col] = not self.board[row][col]   #change the first one
+        left=col-1
+        right=col+1
+        up=row-1
+        down=row+1
+        #change with the rest around it
+        if (up)>= 0:
+            self.board[row - 1][col] = not self.board[up][col]
+        if down < self.rlen :
+            self.board[row + 1][col] = not self.board[down][col]
+        if (left) >= 0:
+            self.board[row][left] = not self.board[row][left]
+        if right < self.clen :
+            self.board[row][right] = not self.board[row][right]
+
+    #no test case, check it later
+    def scramble(self):
+        for x in range(self.rlen):
+            for y in range(self.clen):
+                if random.random() < 0.5:
+                    self.perform_move(x, y)
+
+    def is_solved(self):
+        for row in self.board:
+            for i in row:
+                if i==True:
+                    return False
+        return True
+
+    def copy(self):
+        return copy.deepcopy(self)
+
+    def successors(self):
+        for x in range(self.rlen):
+            for y in range(self.clen):
+                result = self.copy()
+                result.perform_move(x,y)
+                yield ((x,y),result)
+
+    def find_solution(self):
+        front=[]
+        solution=[]
+        moves = {}
+        if self.is_solved():
+            return moves[self]
+        final=[]
+        t = {}  
+        solution = []
+        visit = set()
+        front.append(self)  
+        while len(front) !=0:
+            node = front.pop(0)  
+            for move, new_node in node.successors():   
+                visit=new_node.convert_to_tuple()
+                if tuple(visit) not in t:
+                    t[visit] = [move]
+                    if new_node.is_solved():
+                        while ([i for i, j in zip(new_node.board, self.board) if i == j])==[]:
+                            check_board=new_node.convert_to_tuple()
+                            final.extend(t[check_board])
+                            new_node.perform_move(t[check_board][0][0], t[check_board][0][1])
+                        return (final[::-1])
+                
+                    front.append(new_node) 
+        return None
+    def convert_to_tuple(self):
+        return tuple(tuple(row) for row in self.get_board())
+
+def create_puzzle(rows, cols):
+    return LightsOutPuzzle([[False for x in range(cols)] for y in range(rows)])
+
+############################################################
+# Section 3: Linear Disk Movement
+############################################################
+
+class Disk_movement(object):
+
+    def __init__(self, length, n, wtype):
+        cell=[]
+        self.length = length
+        self.n = n
+        self.len=length-n
+        i=0+wtype
+        for i in range(length):
+                if i< n:
+                    if wtype!=1:
+                        cell.append(1)
+                    else:
+                        cell.append(1+i)
+                else:
+                    cell.append(0)
+        self.cells=cell
+           
+
+    def move(self):
+        length=self.length
+        for i in range(length):
+            if self.cells[i]== None:
+                continue
+            else:
+                if i + 1 < length:
+                    if self.cells[i+1] == 0:  #adjacent empty cell
+                        aftermove = copy.deepcopy(self)
+                        temp=aftermove.cells[i]
+                        aftermove.cells[i+1]=aftermove.cells[i]
+                        aftermove.cells[i]=0
+                        yield(tuple((i, i+1)), aftermove)
+                    else:
+                        if i + 2 < length and self.cells[i+2] == 0 : # empty cell two spaces away
+                            aftermove = copy.deepcopy(self)
+                            temp=aftermove.cells[i]
+                            aftermove.cells[i+2]=aftermove.cells[i]
+                            aftermove.cells[i]=0
+                            yield(tuple((i, i+2)), aftermove)
+                if i >= 1:
+                    if self.cells[i-1] == 0: #adjacent empty cell
+                        aftermove = copy.deepcopy(self)
+                        temp=aftermove.cells[i]
+                        aftermove.cells[i-1]=aftermove.cells[i]
+                        aftermove.cells[i]=0
+                        yield(tuple((i, i-1)), aftermove)
+                    else:
+                        if i >= 2 and self.cells[i-2] == 0: # empty cell two spaces away
+                            aftermove = copy.deepcopy(self)
+                            temp=aftermove.cells[i]
+                            aftermove.cells[i-2]=aftermove.cells[i]
+                            aftermove.cells[i]=0
+                            yield(tuple((i, i-2)), aftermove)
+
+    def is_solved_identical(self):
+        for i in range(self.len):
+            if self.cells[i] != 0:
+                return False
+        return True
+
+
+    def is_solved_distinct(self):
+        i = len(self.cells)
+        for x in range(1,self.n+1):
+            i=i-1
+            if self.cells[i] != x:
+                return False
+        return True
+
+    
+
+
+    def solve_cells(self) :
+        q =[]
+        visited = set()
+        parent = {}
+        parent[self] = None
+        moves = {}
+        moves[self] = None
+        solution = []
+        sols=[]
+        q.append(self)
+        while q != []:
+            board = q.pop(0)
+            visited.add(tuple(board.cells))
+            node = board
+            if node.is_solved_identical()==True:
+                while parent[node]:
+                    solution+=(moves[node],)
+                    sols=solution[::-1]
+                    node = parent[node]
+                return sols
+            if node.is_solved_identical()==False:
+                for nextm, Board in node.move() :
+                    if tuple(Board.cells) !=tuple(board.cells):
+                        moves[Board] = nextm
+                        parent[Board] = board
+                        q.append(Board)
+    def solve_dis_cell(self):
+        q =[]
+        visited = set()
+        parent = {}
+        parent[self] = None
+        moves = {}
+        moves[self] = None
+        solution = [];
+        q.append(self)
+        while q != []:
+            board = q.pop(0)
+            visited.add(tuple(board.cells))
+            node = board
+            if node.is_solved_distinct()==True:
+                while parent[node]:
+                    solution+=(moves[node],)
+                    sols=solution[::-1]
+                    node = parent[node]
+                return sols
+            if node.is_solved_distinct()==False:
+                for nextm, Board in node.move() :
+                     if tuple(Board.cells) !=tuple(board.cells):
+                        moves[Board] = nextm
+                        parent[Board] = board
+                        q.append(Board)
+
+#trying another way besides section 2 to approach the solution
+def solve_identical_disks(length, n):
+    return Disk_movement(length,n,0).solve_cells()
+def solve_distinct_disks(length, n):
+    return Disk_movement(length,n,1).solve_dis_cell()
+
+############################################################
+# 

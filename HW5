@@ -1,0 +1,153 @@
+############################################################
+# CMPSC442: Homework 5
+############################################################
+
+student_name = "Ching-Hao Fan"
+
+############################################################
+# Imports
+import email
+import math
+import os
+############################################################
+
+# Include your imports here, if any are used.
+
+############################################################
+# Section 1: Spam Filter
+############################################################
+
+def load_tokens(email_path):
+    """Reads the email at the specified path, extracts the tokens from its message,
+    and returns them as a list."""
+    # some of the files are encoded with ISO-8859-1
+    try:
+        f = open(email_path, encoding='utf-8')
+        message = email.message_from_file(f)
+        f.close()
+    except:
+        f = open(email_path, encoding='ISO-8859-1')
+        message = email.message_from_file(f)
+        f.close()
+
+    tokens = []
+    for line in email.iterators.body_line_iterator(message):
+        # empty line
+        if not line:
+            continue
+        line = line.split()
+        tokens.extend(line)
+    return tokens
+
+
+def log_probs(email_paths, smoothing):
+    """Given a list of email path as well as the smoothing factor, returns a dictionary
+    from the words contained in the given emails to their  Laplace-smoothed
+    log-probabilities. """
+    # count is dictionary that record the fecquency of word.
+    count = dict()
+    for path in email_paths:
+        tokens = load_tokens(path)
+        for token in tokens:
+            count[token] = count.get(token, 0) + 1
+    # calculate the total number of words
+    sum_of_count = sum((count[token] for token in count))
+    # V is vocabulary
+    V = count.keys()
+    p = dict()
+    # calculate Laplace-smoothed log-probabilities of each word.
+    for w in V:
+        p[w] = math.log((count[w] + smoothing) / (sum_of_count + smoothing * (1 + len(count))))
+    # calculate that value of <UNK>
+    p["<UNK>"] = math.log(smoothing / (sum_of_count + smoothing * (1 + len(count))))
+    return p
+
+
+class SpamFilter(object):
+    def __init__(self, spam_dir, ham_dir, smoothing):
+        """Class initialization, creates two log-probability dictionaries corresponding to
+        the emails in the provided spam and ham directories, then stores them internally for
+        future use. Also compute the class probabilities P(spam) and P(¬spam) based on the
+        number of files in the input directories."""
+        # a list of path of all the spam emails
+        spam_email_paths = [os.path.join(spam_dir, filename) for filename in os.listdir(spam_dir)]
+        self.log_p_spam = log_probs(spam_email_paths, smoothing)
+
+        # a list of path of all the ham emails
+        ham_email_paths = [os.path.join(ham_dir, filename) for filename in os.listdir(ham_dir)]
+        self.log_p_ham = log_probs(ham_email_paths, smoothing)
+        num_spam = len(os.listdir(spam_dir))
+        num_ham = len(os.listdir(ham_dir))
+
+        # the log-probabilities of spam and ham
+        self.p_spam = math.log(num_spam * 1.0 / (num_spam + num_spam))
+        self.p_ham = math.log(num_ham * 1.0 / (num_ham + num_spam))
+
+    def is_spam(self, email_path):
+        """Given path of an email file, returns a Boolean value indicating whether the email at
+        the given file path is predicted to be spam."""
+        # count is dictionary that record the fecquency of word.
+        tokens = load_tokens(email_path)
+        count = dict()
+        for token in tokens:
+            count[token] = count.get(token, 0) + 1
+
+        p_spam = self.p_spam
+        p_ham = self.p_ham
+        # p_spam
+        for token in tokens:
+            that_token = token
+            if that_token not in self.log_p_spam:
+                that_token = '<UNK>'
+            p_spam += self.log_p_spam[that_token]
+        # p_ham
+        for token in tokens:
+            that_token = token
+            if that_token not in self.log_p_ham:
+                that_token = '<UNK>'
+            p_ham += self.log_p_ham[that_token]
+        return p_spam > p_ham
+
+    def most_indicative_spam(self, n):
+        """Return the n most indicative words for spam."""
+        indications = []
+        # restrict the set of words considered for each method to those
+        # which appear in at least one spam email and one ham email
+        words = set(self.log_p_spam.keys()) & set(self.log_p_ham.keys())
+        for word in words:
+            # calculate p(w)
+            p_word = math.exp(self.log_p_spam[word]) * math.exp(self.p_spam) + \
+                     math.exp(self.log_p_ham[word]) * math.exp(self.p_ham)
+            # calculate log p(w)
+            log_p_word = math.log(p_word)
+            indication = self.log_p_spam[word] - log_p_word
+            indications.append((word, indication))
+        largest_n = []
+        # select n largest
+        for i in range(n):
+            max_indication = max(indications, key = lambda x: x[1])
+            largest_n.append(max_indication[0])
+            indications.remove(max_indication)
+        return largest_n
+
+    def most_indicative_ham(self, n):
+        """Return the n most indicative words for ham."""
+        indications = []
+        # restrict the set of words considered for each method to those
+        # which appear in at least one spam email and one ham email
+        words = set(self.log_p_spam.keys()) & set(self.log_p_ham.keys())
+        for word in words:
+            # calculate p(w)
+            p_word = math.exp(self.log_p_spam[word]) * math.exp(self.p_spam) + \
+                     math.exp(self.log_p_ham[word]) * math.exp(self.p_ham)
+            # calculate log p(w)
+            log_p_word = math.log(p_word)
+            indication = self.log_p_ham[word] - log_p_word
+            indications.append((word, indication))
+        # select n largest
+        largest_n = []
+        for i in range(n):
+            max_indication = max(indications, key=lambda x: x[1])
+            largest_n.append(max_indication[0])
+            indications.remove(max_indication)
+        return largest_n

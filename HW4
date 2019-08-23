@@ -1,0 +1,183 @@
+###########################################################
+# CMPSC442: Homework 4
+############################################################
+
+student_name = "Ching-Hao Fan"
+
+############################################################
+# Imports
+############################################################
+
+import copy
+import time 
+
+
+############################################################
+# Section 1: Sudoku
+############################################################
+def checkeffiency(time):
+    if time > 60:
+        print("--- %s seconds ---" %time)
+        print("Will be time error, check time again")
+    else:
+        print("--- %s seconds ---" %time)
+
+def sudoku_cells():
+    ret = []
+    for i in range(9):
+        for j in range(9):
+            ret.append((i, j))
+    return ret
+
+def sudoku_arcs():
+    ret = []
+    for i in range(9):
+        for j in range(9):
+            for x in range(9):
+                for y in range(9):
+                    if i == x or j == y or (i / 3 == x / 3 and j / 3 == y / 3):
+                        if i == x and j == y:
+                            continue
+                        ret.append(((i, j), (x, y)))
+    return ret
+
+def read_board(path):
+    with open(path, 'r') as file:
+        data = file.readlines()
+        board = [[{} for i in range(9)] for i in range(9)]
+        for i in range(9):
+            for j in range(9):
+                if data[i][j] == '*':
+                    board[i][j] = {i for i in range(1, 10)}
+                else:
+                    board[i][j] = {int(data[i][j])}
+        return board
+
+
+
+class Sudoku(object):
+
+    CELLS = sudoku_cells()
+    ARCS = sudoku_arcs()
+
+    def __init__(self, board):
+        self.board = board
+
+    def get_values(self, cell):
+        return self.board[cell[0]][cell[1]]
+        
+    def remove_inconsistent_values(self, cell1, cell2):
+        if len(self.get_values(cell2)) > 1:
+            return False
+
+        values = self.get_values(cell2)
+        for k in values:
+            if k in self.board[cell1[0]][cell1[1]]:
+                self.board[cell1[0]][cell1[1]].remove(k)
+                return True
+        return False
+
+    def infer_ac3(self):
+        queue = copy.copy(self.ARCS)
+        while(len(queue)):
+            constraint = queue.pop()
+            cell1 = constraint[0]
+            cell2 = constraint[1]
+            if self.remove_inconsistent_values(cell1, cell2):
+                if len(self.get_values(cell1)) == 0:
+                    return False
+                if len(self.get_values(cell1)) == 1:
+                    for j in range(9):
+                        if j != cell1[1]:
+                            queue.append(((cell1[0], j), cell1))
+                    for i in range(9):
+                        if i != cell1[0]:
+                            queue.append(((i, cell1[1]), cell1))
+                    for i in range(cell1[0] / 3 * 3, (cell1[0] / 3 + 1) * 3):
+                        for j in range(cell1[1] / 3 * 3, (cell1[1] / 3 + 1) * 3):
+                            if i != cell1[0] or j != cell1[1]:
+                                queue.append(((i, j), cell1))
+        return True
+
+    def infer_improved(self):
+        result = self.infer_ac3()
+        while (result):
+            if result == False:
+                return False
+            grd = [[0 for value in range(10)] for i in range(9)]
+            flag = False
+            for cell in self.CELLS:
+                if len(self.get_values(cell)) > 1:
+                    i, j = cell
+                    for value in self.get_values(cell):
+                        grd[(i/3)*3 + j/3][value] += 1
+
+            for k in range(9):
+                for value in range(1, 10):
+                    if grd[k][value] == 1:
+                        ii = k / 3
+                        jj = k % 3
+                        for i in range(ii * 3, (ii + 1) * 3):
+                            for j in range(jj * 3, (jj + 1) * 3):
+                                if len(self.get_values((i, j))) == 1:
+                                    continue
+                                if value in self.get_values((i, j)):
+                                    self.board[i][j] = {value}
+                                    flag = True
+            if flag == False:
+                return True
+            result = self.infer_ac3()
+        return True
+
+    def backTrack(self, index):
+        if index == len(self.CELLS):
+            return True
+
+        cell = self.CELLS[index]
+        if len(self.get_values(cell)) == 1:
+            if self.infer_ac3():
+                return self.backTrack(index + 1)
+            return False
+
+        board_back = copy.deepcopy(self.board)
+        for k in self.get_values(cell):
+            self.board[cell[0]][cell[1]] = {k}
+            if self.infer_improved():
+                result = self.backTrack(index + 1)
+                if result:
+                    return True
+            self.board = copy.deepcopy(board_back)
+        return False
+
+    def infer_with_guessing(self):
+        if self.infer_improved():
+            return self.backTrack(0)
+        return False
+    def check(self):
+        for con in self.ARCS:
+            k1 = self.get_values(con[0])
+            k2 = self.get_values(con[1])
+            for k in k1:
+                if k in k2:
+                    print con
+                    return False
+        return True
+
+"""
+start_time = time.time()
+b = read_board('medium2.txt')
+sudoku = Sudoku(b)
+print sudoku.infer_with_guessing()
+
+print "##################"
+for i in range(9):
+    for j in range(9):
+        if len(sudoku.board[i][j]) == 1:
+            print sudoku.board[i][j],
+        else:
+            print 'set([ ])',
+        pass
+    print 
+print sudoku.check()
+checkeffiency(time.time() - start_time)
+"""

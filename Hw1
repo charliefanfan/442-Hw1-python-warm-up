@@ -1,0 +1,222 @@
+############################################################
+# CMPSC 442: Homework 1
+############################################################
+
+student_name = "Ching-Hao Fan"
+
+############################################################
+# Section 1: Python Concepts
+############################################################
+
+python_concepts_question_1 = """
+Python is strongly typed as the interpreter keeps track of all variables types.
+It's also very dynamic as it rarely uses what it knows to limit variable usage.
+
+For example for strong:
+we can add Hello' + 'And' + 'Goodbye' to get "HelloAndGoodBye"
+
+For example for dynamical:
+the variable itself does not have a type, so if we have a variablenow with a number,
+we can still later assign a string to it if we want to change it.
+
+"""
+
+python_concepts_question_2 ="""
+python wont take the list as hastable dictionary
+lists are mutable objects so the hash build by it will also be mutable 
+it should use python tuple instead.
+
+"""
+
+python_concepts_question_3 = """
+the function with join method will be faster than another
+when we use the join method, the python doesn't need to allocate the intermediate string 
+on the contrary, the function with += will have to allocate the intermediate string and will create
+a lot of temporary strings to copied them for the final result.
+"""
+
+############################################################
+# Section 2: Working with Lists
+############################################################
+
+def extract_and_apply(l, p, f):
+    return [f(x) for x in 1 if p(x)]
+
+
+def concatenate(seqs):
+    return [element for element in seq for seq in seqs]
+
+def transpose(matrix):
+       result = [[[matrix[j][i] for j in range(len(matrix))] for i in range(len(matrix[0]))]]
+       for row in result:
+          return row
+
+############################################################
+# Section 3: Sequence Slicing
+############################################################
+
+def copy(seqs):
+    return seqs[:]
+
+def all_but_last(seq):
+    return seq[:-1]
+
+def every_other(seq):
+    return seq[0::2]
+
+############################################################
+# Section 4: Combinatorial Algorithms
+############################################################
+
+def prefixes(seq):
+   for x in range(len(seq)+1):
+        yield seq[:x]
+
+def suffixes(seq):
+    for x in range(len(seq)+1):
+        yield seq[x:]
+
+def slices(seq):
+     for x in range(len(seq)+1):
+        for y in range(x+1,len(seq)+1):
+          yield seq[x:y]
+
+
+############################################################
+# Section 5: Text Processing
+############################################################
+
+def normalize(text):
+    result=text.lower().split()
+    return" ".join(result)
+
+def no_vowels(text):
+    return(text.translate(None,'aeiouAEIOU'))
+
+def digits_to_words(text):
+    result=[]
+    digit= {"0": "zero","1": "one","2": "two","3": "three","4": "four","5": "five",
+            "6": "six","7": "seven","8": "eight", "9": "nine"}
+    for i in text:
+        if i in digit:
+        
+            result.append(digit[i])
+    return " ".join(result)
+
+def to_mixed_case(name):
+    n=name.split("_")
+    result="";
+    for x in n:
+        if result=="":
+            result += x.lower ()
+        else:
+            result += x.capitalize()
+    if n=="":
+        return n
+    
+    return result
+
+############################################################
+# Section 6: Polynomials
+############################################################
+
+class Polynomial(object):
+
+    def __init__(self, polynomial):
+        self.poly = tuple(polynomial)
+
+
+    def get_polynomial(self):
+        return self.poly
+
+    def __neg__(self):
+        def reverse(a):
+            return (-a[0], a[1])
+        return Polynomial(map(reverse, self.poly))
+
+    def __add__(self, other):
+        return Polynomial(self.poly+other.poly)
+
+    def __sub__(self, other):
+        return Polynomial(self.poly+(-other).poly)
+
+    def __mul__(self, other):
+        poly = []
+        for x in range(len(self.poly)):
+            for y in range(len(other.poly)):
+                a=self.poly[x][0]*other.poly[y][0]
+                b=self.poly[x][1]+other.poly[y][1]
+                poly.append((a,b))
+
+        return Polynomial(poly)
+
+    def __call__(self, x):
+        pair=[]
+        for i in range(len(self.poly)):
+            pair.append((self.poly[i][0]*x**self.poly[i][1]))
+        return sum(pair)
+
+    def simplify(self):
+        dic={};new=[]
+        #combine the same power
+        for x in self.poly:
+            if x[1] in dic:
+                dic[x[1]] += x[0]
+            else:
+                dic[x[1]]= x[0]
+                
+        for y in dic.keys():
+            new.append((dic[y],y))
+            #remove if the coefficient is 0
+            if dic[y] ==0:
+                new.remove((dic[y],y))
+        if new==[]:
+            new.append((0,0))
+        def second(x):
+            return x[1];
+        new.sort(key=second, reverse=True)
+        self.poly = tuple(new)
+
+    def __str__(self):
+        def lastprint():
+            if list1[1] == 0:
+                last()
+            
+        def last():
+            return(poly.append(str(list1[0])))
+        poly = []
+        check = 1
+        for list1 in self.poly:
+            positive1=abs(list1[0])
+            positive2=abs(list1[1])
+            if check != 1:  
+                if list1[0] > 0 or list1[0]==0:
+                    poly.append("+")
+                if list1[0] < 0:
+                    list1=(positive1,positive2)
+                    poly.append("-")
+            if list1[0] == 1:
+                lastprint()
+                if list1[1]!=0:
+                    if list1[1] == 1:
+                        poly.append("x" )
+                    else:
+                        poly.append("x^%d" % list1[1])
+            elif list1[0] == -1:
+                lastprint()
+                if list1[1]!=0:
+                    if list1[1] == 1:
+                        poly.append("-x")
+                    else:
+                        poly.append("-x^%d" % list1[1])
+            else:
+                lastprint()
+                if list1[1]!=0:
+                    if list1[1] !=1:
+                        poly.append("%dx^%d" % (list1[0], list1[1]))
+                    elif list1[1] == 1:
+                        poly.append("%dx" % list1[0])
+            check = 2        
+
+        return " ".join(poly)
+

@@ -1,0 +1,456 @@
+###########################################################
+# CMPSC 442: Homework 3
+############################################################
+
+student_name = "Ching-Hao Fan"
+
+############################################################
+# Imports
+############################################################
+
+# Include your imports here, if any are used.
+import random
+import copy
+import math
+import Queue
+from copy import deepcopy
+from Queue import PriorityQueue
+import time
+
+
+
+
+############################################################
+# Section 1: Tile Puzzle
+############################################################
+
+
+def create_tile_puzzle(rows, cols):
+    board = list()
+    for i in range(rows):
+        row = [i * cols + j for j in range(1, cols + 1)]
+        board.append(row)
+    board[-1][-1] = 0
+    return TilePuzzle(board)
+
+
+def locate_empty_space(board):
+    """Return the position of 0 in a tile puzzle."""
+    for r, row in enumerate(board):
+        for c, col in enumerate(row):
+            if col == 0:
+                return r, c
+    return -1, -1
+
+#remeber H2, make sure the effiency!!!
+def checkeffiency(time):
+    if time > 60:
+        print("--- %s seconds ---" %time)
+        print("Will be time error, check time again")
+    else:
+        print("--- %s seconds ---" %time)
+
+
+class TilePuzzle(object):
+ 
+    # Required
+    def __init__(self, board):
+        self.board = board
+        self.rows = len(board)
+        self.cols = len(board[0])
+
+    def __eq__(self, other):
+        return str(self.board) == str(other.board)
+
+    def __hash__(self):
+        return hash(str(self.board))
+
+    def get_board(self):
+        return self.board
+
+    def perform_move(self, direction):
+        if direction not in ['up', 'down', 'left', 'right']:
+            return False
+        r, c = locate_empty_space(self.board)
+        if direction == 'up':
+            if r == 0:
+                return False
+            self.board[r][c] = self.board[r - 1][c]
+            self.board[r - 1][c] = 0
+        elif direction == 'down':
+            if r == self.rows - 1:
+                return False
+            self.board[r][c] = self.board[r + 1][c]
+            self.board[r + 1][c] = 0
+        elif direction == 'left':
+            if c == 0:
+                return False
+            self.board[r][c] = self.board[r][c - 1]
+            self.board[r][c - 1] = 0
+        else:
+            if c == self.cols - 1:
+                return False
+            self.board[r][c] = self.board[r][c + 1]
+            self.board[r][c + 1] = 0
+        return True
+
+    def scramble(self, num_moves):
+        moves = ["right", "left", "up", "down"]
+        for i in xrange(num_moves):
+            self.perform_move(random.choice(moves))
+
+    def is_solved(self):
+        flattened = list()
+        for row in self.board:
+            flattened.extend(row)
+        for i in range(0, self.rows * self.cols - 1):
+            if flattened[i] != i + 1:
+                return False
+        return True
+
+    def copy(self):
+        that = TilePuzzle(deepcopy(self.board))
+        return that
+
+    def successors(self):
+        directions = ['up', 'down', 'left', 'right']
+        for direction in directions:
+            successor = self.copy()
+            if successor.perform_move(direction):
+                yield direction, successor
+    def convert(self):
+        return tuple(tuple(row) for row in self.get_board())
+        
+ 
+
+     
+    
+    def find_solutions_iddfs(self):
+        #test for running time
+        start_time = time.time()
+        limit=0
+        done = False
+        while done != True:
+            solution = self.iddfs_helper(limit,[])
+            if solution!=[] :
+                #try except to speed up
+                try:
+                    for sol in solution :
+                        yield sol
+                        done = True
+                except:
+                    pass
+                
+            else:
+                    limit+=1
+        """
+        checkeffiency(time.time() - start_time)
+        """
+
+    def iddfs_helper(self, limit,moves):
+        stack = list()
+        stack.append((self, []))
+        expanded = set()
+        paths = []
+        expanded.add(self)
+        if limit < 0:
+            return None
+        if self.is_solved():
+            return moves
+        while not stack ==[] :
+            current, path = stack.pop(-1)
+            if len(path) < limit:
+                for move, successor in current.successors():
+                    if successor not in expanded:
+                        if successor.is_solved():
+                            paths.append(path + [move])
+                        else:
+                            stack.append((successor, path + [move]))
+                            expanded.add(successor)
+        return paths[::-1]
+
+    def heuristic(self):
+        # heuristic function, number of tile that are
+        # not at it's supposed position
+        distance = 0
+        for r, row in enumerate(self.board):
+            for c, number in enumerate(row):
+                if number == 0:
+                    solved_row = self.rows - 1
+                    solved_col = self.cols - 1
+                else:
+                    number -= 1
+                    solved_row = number // self.rows
+                    solved_col = number % self.cols
+                distance += abs(r - solved_row) + abs(c - solved_col)
+        return distance
+
+    # Required
+    def find_solution_a_star(self):
+        #test for running time
+        start_time = time.time()
+        queue = PriorityQueue()
+        expanded = set()
+        # (h + g, puzzle, path to pazzle, g)
+        queue.put((0, self, [], 0))
+
+        while not queue.empty():
+            f, status, path, cost = queue.get()
+            if status in expanded:
+                continue
+
+            expanded.add(status)
+            if status.is_solved():
+                return path
+            for direction, successor in status.successors():
+                if successor in expanded:
+                    continue
+                h = successor.heuristic()
+                queue.put((cost + 1 + h,successor,path + [direction],cost + 1))
+        """
+        print("--- %s seconds ---" % (time.time() - start_time))
+        """
+
+        return None
+
+        
+
+
+
+############################################################
+# Section 2: Grid Navigation
+############################################################
+
+
+def euclidean(p1, p2):
+    return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
+
+
+def get_neighbors(p, scene):
+    rows = len(scene)
+    columns = len(scene[0])
+    x = p[0]
+    y = p[1]
+    neighbors = list()
+    for dx in range(-1, 2, 1):
+        for dy in range(-1, 2, 1):
+            if dx == 0 and dy == 0:
+                continue
+            nx = x + dx
+            ny = y + dy
+            if 0 <= nx < rows and 0 <= ny < columns and not scene[nx][ny]:
+                neighbors.append((nx, ny))
+    return neighbors
+
+
+def find_path(start, goal, scene):
+    queue = PriorityQueue()
+    expanded = set()
+    cost = euclidean(start, goal)
+    queue.put((cost, start, [start], 0))
+    while not queue.empty():
+        f, current, path, cost = queue.get()
+        if current in expanded:
+            continue
+        expanded.add(current)
+        if current == goal:
+            return path
+        for neighbor in get_neighbors(current, scene):
+            if neighbor in expanded:
+                continue
+            h = euclidean(neighbor, goal)
+            cost_to_neighbor = euclidean(current, neighbor)
+            queue.put((cost + cost_to_neighbor + h, neighbor, path + [neighbor], cost + cost_to_neighbor))
+    return None
+
+
+############################################################
+# Section 3: Linear Disk Movement, Revisited
+############################################################
+
+def create_distinct_disks(l, n):
+    return [ i + 1  if i < n else 0 for i in xrange(l)];
+
+# Definition of a linear disk status
+class Status:
+    def __init__(self, status):
+        self.status = status
+
+    def __eq__(self, other):
+        for i, e in enumerate(self.status):
+            if e != other.status[i]:
+                return False
+        return True
+
+    def __hash__(self):
+        return hash(str(self.status))
+
+    def legal_moves(self):
+        disk_index = [i for i in range(len(self.status)) if self.status[i] != -1]
+        for i in disk_index:
+            for c in [-1, 1]:
+                if 0 <= i + c < len(self.status) and self.status[i + c] == -1:
+                    yield i, i + c
+            if i + 2 < len(self.status) and self.status[i + 1] != -1 and self.status[i + 2] == -1:
+                yield i, i + 2
+            if i - 2 >= 0 and self.status[i - 1] != -1 and self.status[i - 2] == -1:
+                yield i, i - 2
+
+    def move(self, i, j):
+        self.status[j] = self.status[i]
+        self.status[i] = -1
+
+    def successors(self):
+        for action in self.legal_moves():
+            that = self.copy()
+            that.move(action[0], action[1])
+            yield that, action, 1
+
+    def copy(self):
+        return Status(deepcopy(self.status))
+
+    def heuristic(self):
+
+        # heuristic : the sum distance of all misplaced disks
+        h = 0
+        length = len(self.status)
+        for i, e in enumerate(self.status):
+            if e != -1:
+                h += abs(i - (length - 1 - e))
+        return h
+
+    def __str__(self):
+        return str(self.status)
+
+
+def solve_distinct_disks(length, n):
+    linear_disk = [i for i in range(n)] + [-1 for i in range(length - n)]
+    goal = [-1 for i in range(length - n)] + [i for i in range(n - 1, -1, -1)]
+
+    start_status = Status(linear_disk)
+    goal_status = Status(goal)
+
+    queue = PriorityQueue()
+    expanded = set()
+    queue.put((0, start_status, [], 0))
+
+    while not queue.empty():
+        f, status, path, cost = queue.get()
+        if status in expanded:
+            continue
+        expanded.add(status)
+        if status == goal_status:
+            return path
+        for next_status, action, cost_to_next in status.successors():
+            if next_status in expanded:
+                continue
+            h = next_status.heuristic()
+            queue.put((cost + cost_to_next + h,
+                       next_status,
+                       path + [action],
+                       cost + cost_to_next))
+    return None
+
+############################################################
+# Section 4: Dominoes Game
+############################################################
+INF = 9999999
+
+
+def create_dominoes_game(rows, cols):
+    return DominoesGame([[False for i in range(cols)] for j in range(rows)])
+
+
+class DominoesGame(object):
+
+    # Required
+    def __init__(self, board):
+        self.board = deepcopy(board)
+        self.rows = len(board)
+        self.cols = len(board[0])
+
+        self.leaf = 0
+        self.move = None
+
+    def get_board(self):
+        return self.board
+
+    def reset(self):
+        for r in range(self.rows):
+            for c in range(self.cols):
+                self.board[r][c] = False
+
+    def is_legal_move(self, row, col, vertical):
+        nr, nc = row, col
+        if vertical:
+            nr += 1
+            if nr == self.rows:
+                return False
+        else:
+            nc += 1
+            if nc == self.cols:
+                return False
+        return not self.board[row][col] and not self.board[nr][nc]
+
+    def legal_moves(self, vertical):
+        for r in range(self.rows):
+            for c in range(self.cols):
+                if self.is_legal_move(r, c, vertical):
+                    yield (r, c)
+
+    def perform_move(self, row, col, vertical):
+        nr, nc = row, col
+        if vertical:
+            nr += 1
+        else:
+            nc += 1
+        self.board[row][col] = True
+        self.board[nr][nc] = True
+
+    def game_over(self, vertical):
+        legal_moves = list(self.legal_moves(vertical))
+        return not legal_moves
+
+    def copy(self):
+        that = DominoesGame(deepcopy(self.board))
+        return that
+
+    def successors(self, vertical):
+        legal_moves = list(self.legal_moves(vertical))
+        for move in legal_moves:
+            that = self.copy()
+            that.perform_move(move[0], move[1], vertical)
+            yield move, that
+
+    def get_random_move(self, vertical):
+        legal_moves = list(self.legal_moves(vertical))
+        return random.choice(legal_moves)
+
+    def alpha_beta(self, node, depth, alpha, beta, player, me, limit):
+        if depth == 0 or node.game_over(player):
+            self.leaf += 1
+            return len(list(node.legal_moves(me))) - len(list(node.legal_moves(not me)))
+        if player == me:
+            for move, successor in node.successors(player):
+                _alpha = self.alpha_beta(successor, depth - 1, alpha, beta, not player, me, limit)
+                if alpha < _alpha:
+                    alpha = _alpha
+                    if depth == limit:
+                        self.move = move
+                if beta <= alpha:
+                    break
+            return alpha
+        else:
+            for move, successor in node.successors(player):
+                beta = min(beta, self.alpha_beta(successor, depth - 1, alpha, beta, not player, me, limit))
+                if beta <= alpha:
+                    break
+            return beta
+
+    # Required
+    def get_best_move(self, vertical, limit):
+        me = vertical
+        alpha = -INF
+        beta = INF
+        alpha = self.alpha_beta(self, limit, alpha, beta, me, me, limit)
+        return self.move, alpha, self.leaf

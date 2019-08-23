@@ -1,0 +1,162 @@
+############################################################
+# CMPSC 442: Homework 6
+############################################################
+
+student_name = "Ching-Hao Fan"
+
+############################################################
+# Imports
+############################################################
+
+# Include your imports here, if any are used.
+import string
+import random
+import math
+
+############################################################
+# Section 1: Markov Models
+############################################################
+
+def tokenize(text):
+    new_text = ""
+    for i in text:
+        if i in string.punctuation:
+            new_text += " " + i + " "
+        else:
+            new_text += i
+    ret = []
+    for each in new_text.split(" "):
+        if each and each != '\n':
+            ret.append(each)
+    return ret
+
+def ngrams(n, tokens):
+    ret = []
+    for i in range(len(tokens) + 1):
+        gram = []
+        j = i - n + 1
+        for k in range(j, i):
+            if k < 0:
+                gram.append('<START>')
+            else:
+                gram.append(tokens[k])
+        if i < len(tokens):
+            ret.append((tuple(gram), tokens[i]))
+        else:
+            ret.append((tuple(gram), '<END>'))
+
+    return ret
+
+
+class NgramModel(object):
+
+    def __init__(self, n):
+        self.n = n
+        self.context_token = {}
+        self.context_token_count = {}
+        self.context_count = {}
+        self.count = 0
+
+    def update(self, sentence):
+        all_grams = ngrams(self.n, tokenize(sentence))
+        self.count += len(all_grams)
+        for each in all_grams:
+            if not self.context_token.has_key(each[0]):
+                self.context_token[each[0]] = []
+                self.context_count[each[0]] = 0
+
+            if not self.context_token_count.has_key(each):
+                self.context_token_count[each] = 0
+                self.context_token[each[0]].append(each[1])
+
+            self.context_count[each[0]] += 1
+            self.context_token_count[each] += 1
+
+    def prob(self, context, token):
+        key = (context, token)
+        if self.context_count.has_key(context):
+            return self.context_token_count.get(key, 0) * 1.0 / self.context_count.get(context, 0)
+        else:
+            return 0.0
+
+    def random_token(self, context):
+        self.context_token[context].sort()
+        r = random.random()
+        for token in self.context_token[context]:
+            r -= self.prob(context, token)
+            if r < 0:
+                return token
+
+    def random_text(self, token_count):
+        if self.n == 1:
+            context = ()
+        else:
+            context = tuple('<START>' for i in range(self.n - 1))
+        ret = []
+        for i in range(token_count):
+            if not self.context_token.has_key(context):
+                context = tuple('<START>' for i in range(self.n - 1))
+            token = self.random_token(context)
+            ret.append(token)
+            if self.n != 1:
+                temp_list = list(context)
+                temp_list.append(token)
+                context = tuple(temp_list[1:])
+        return " ".join(ret)
+
+    def perplexity(self, sentence):
+        all_grams = ngrams(self.n, tokenize(sentence))
+        ret = 0
+        for each in all_grams:
+            ret += math.log(1 / self.prob(each[0], each[1]))
+        return math.pow(math.e, ret / len(all_grams))
+
+
+def create_ngram_model(n, path):
+    m = NgramModel(n)
+    with open(path, 'r') as f:
+        for line in f.readlines():
+            m.update(line)
+    return m
+
+
+# m = create_ngram_model(1, "frankenstein.txt")
+# print m.random_text(15)
+# m = create_ngram_model(2, "frankenstein.txt")
+# print m.random_text(15)
+# m = create_ngram_model(3, "frankenstein.txt")
+# print m.random_text(15)
+# m = create_ngram_model(4, "frankenstein.txt")
+# print m.random_text(15)
+
+# print "########### n = 1 ##########"
+# m = NgramModel(1)
+# m.update("a b c d")
+# m.update("a b a b")
+# print m.prob((), "a")
+# print m.prob((), "c")
+# print m.prob((), "<END>")
+# random.seed(1)
+# print [m.random_token(()) for i in range(25)]
+# random.seed(1)
+# print m.random_text(13)
+# print "perplexity:"
+# print m.perplexity("a b")
+# print 
+
+# print "########### n = 2 ##########"
+# m = NgramModel(2)
+# m.update("a b c d")
+# m.update("a b a b")
+# print m.prob(("<START>",), "a")
+# print m.prob(("b",), "c")
+# print m.prob(("a",), "x")
+# print m.prob(("x",), "x")
+# random.seed(2)
+# print [m.random_token(("<START>",)) for i in range(6)]
+# print [m.random_token(("b",)) for i in range(6)]
+# random.seed(2)
+# print m.random_text(15)
+# print "perplexity:"
+# print m.perplexity("a b")
+# print 
